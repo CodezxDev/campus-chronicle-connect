@@ -10,33 +10,278 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AvisosRouteImport } from './routes/avisos'
+import { Route as BuscaRouteImport } from './routes/busca'
+import { Route as ContatoRouteImport } from './routes/contato'
+import { Route as SobreRouteImport } from './routes/sobre'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as BlogIndexRouteImport } from './routes/blog.index'
+import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
+import { Route as EventosIndexRouteImport } from './routes/eventos.index'
+import { Route as EventosSlugRouteImport } from './routes/eventos.$slug'
+import { Route as GaleriaIndexRouteImport } from './routes/galeria.index'
+import { Route as GaleriaSlugRouteImport } from './routes/galeria.$slug'
+import { Route as NoticiasIndexRouteImport } from './routes/noticias.index'
+import { Route as NoticiasSlugRouteImport } from './routes/noticias.$slug'
+import { Route as PodcastIndexRouteImport } from './routes/podcast.index'
+import { Route as PodcastSlugRouteImport } from './routes/podcast.$slug'
+import { Route as ProjetosIndexRouteImport } from './routes/projetos.index'
+import { Route as ProjetosSlugRouteImport } from './routes/projetos.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AvisosRoute = AvisosRouteImport.update({
+  id: '/avisos',
+  path: '/avisos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BuscaRoute = BuscaRouteImport.update({
+  id: '/busca',
+  path: '/busca',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContatoRoute = ContatoRouteImport.update({
+  id: '/contato',
+  path: '/contato',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SobreRoute = SobreRouteImport.update({
+  id: '/sobre',
+  path: '/sobre',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventosIndexRoute = EventosIndexRouteImport.update({
+  id: '/eventos/',
+  path: '/eventos/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventosSlugRoute = EventosSlugRouteImport.update({
+  id: '/eventos/$slug',
+  path: '/eventos/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GaleriaIndexRoute = GaleriaIndexRouteImport.update({
+  id: '/galeria/',
+  path: '/galeria/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GaleriaSlugRoute = GaleriaSlugRouteImport.update({
+  id: '/galeria/$slug',
+  path: '/galeria/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NoticiasIndexRoute = NoticiasIndexRouteImport.update({
+  id: '/noticias/',
+  path: '/noticias/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NoticiasSlugRoute = NoticiasSlugRouteImport.update({
+  id: '/noticias/$slug',
+  path: '/noticias/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PodcastIndexRoute = PodcastIndexRouteImport.update({
+  id: '/podcast/',
+  path: '/podcast/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PodcastSlugRoute = PodcastSlugRouteImport.update({
+  id: '/podcast/$slug',
+  path: '/podcast/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjetosIndexRoute = ProjetosIndexRouteImport.update({
+  id: '/projetos/',
+  path: '/projetos/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjetosSlugRoute = ProjetosSlugRouteImport.update({
+  id: '/projetos/$slug',
+  path: '/projetos/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/avisos': typeof AvisosRoute
+  '/busca': typeof BuscaRoute
+  '/contato': typeof ContatoRoute
+  '/sobre': typeof SobreRoute
+  '/admin': typeof AuthenticatedAdminRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/eventos/$slug': typeof EventosSlugRoute
+  '/galeria/$slug': typeof GaleriaSlugRoute
+  '/noticias/$slug': typeof NoticiasSlugRoute
+  '/podcast/$slug': typeof PodcastSlugRoute
+  '/projetos/$slug': typeof ProjetosSlugRoute
+  '/blog/': typeof BlogIndexRoute
+  '/eventos/': typeof EventosIndexRoute
+  '/galeria/': typeof GaleriaIndexRoute
+  '/noticias/': typeof NoticiasIndexRoute
+  '/podcast/': typeof PodcastIndexRoute
+  '/projetos/': typeof ProjetosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/avisos': typeof AvisosRoute
+  '/busca': typeof BuscaRoute
+  '/contato': typeof ContatoRoute
+  '/sobre': typeof SobreRoute
+  '/admin': typeof AuthenticatedAdminRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/eventos/$slug': typeof EventosSlugRoute
+  '/galeria/$slug': typeof GaleriaSlugRoute
+  '/noticias/$slug': typeof NoticiasSlugRoute
+  '/podcast/$slug': typeof PodcastSlugRoute
+  '/projetos/$slug': typeof ProjetosSlugRoute
+  '/blog': typeof BlogIndexRoute
+  '/eventos': typeof EventosIndexRoute
+  '/galeria': typeof GaleriaIndexRoute
+  '/noticias': typeof NoticiasIndexRoute
+  '/podcast': typeof PodcastIndexRoute
+  '/projetos': typeof ProjetosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/avisos': typeof AvisosRoute
+  '/busca': typeof BuscaRoute
+  '/contato': typeof ContatoRoute
+  '/sobre': typeof SobreRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/eventos/$slug': typeof EventosSlugRoute
+  '/galeria/$slug': typeof GaleriaSlugRoute
+  '/noticias/$slug': typeof NoticiasSlugRoute
+  '/podcast/$slug': typeof PodcastSlugRoute
+  '/projetos/$slug': typeof ProjetosSlugRoute
+  '/blog/': typeof BlogIndexRoute
+  '/eventos/': typeof EventosIndexRoute
+  '/galeria/': typeof GaleriaIndexRoute
+  '/noticias/': typeof NoticiasIndexRoute
+  '/podcast/': typeof PodcastIndexRoute
+  '/projetos/': typeof ProjetosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/avisos'
+    | '/busca'
+    | '/contato'
+    | '/sobre'
+    | '/admin'
+    | '/blog/$slug'
+    | '/eventos/$slug'
+    | '/galeria/$slug'
+    | '/noticias/$slug'
+    | '/podcast/$slug'
+    | '/projetos/$slug'
+    | '/blog/'
+    | '/eventos/'
+    | '/galeria/'
+    | '/noticias/'
+    | '/podcast/'
+    | '/projetos/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/avisos'
+    | '/busca'
+    | '/contato'
+    | '/sobre'
+    | '/admin'
+    | '/blog/$slug'
+    | '/eventos/$slug'
+    | '/galeria/$slug'
+    | '/noticias/$slug'
+    | '/podcast/$slug'
+    | '/projetos/$slug'
+    | '/blog'
+    | '/eventos'
+    | '/galeria'
+    | '/noticias'
+    | '/podcast'
+    | '/projetos'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/avisos'
+    | '/busca'
+    | '/contato'
+    | '/sobre'
+    | '/_authenticated/admin'
+    | '/blog/$slug'
+    | '/eventos/$slug'
+    | '/galeria/$slug'
+    | '/noticias/$slug'
+    | '/podcast/$slug'
+    | '/projetos/$slug'
+    | '/blog/'
+    | '/eventos/'
+    | '/galeria/'
+    | '/noticias/'
+    | '/podcast/'
+    | '/projetos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
+  AvisosRoute: typeof AvisosRoute
+  BuscaRoute: typeof BuscaRoute
+  ContatoRoute: typeof ContatoRoute
+  SobreRoute: typeof SobreRoute
+  BlogSlugRoute: typeof BlogSlugRoute
+  EventosSlugRoute: typeof EventosSlugRoute
+  GaleriaSlugRoute: typeof GaleriaSlugRoute
+  NoticiasSlugRoute: typeof NoticiasSlugRoute
+  PodcastSlugRoute: typeof PodcastSlugRoute
+  ProjetosSlugRoute: typeof ProjetosSlugRoute
+  BlogIndexRoute: typeof BlogIndexRoute
+  EventosIndexRoute: typeof EventosIndexRoute
+  GaleriaIndexRoute: typeof GaleriaIndexRoute
+  NoticiasIndexRoute: typeof NoticiasIndexRoute
+  PodcastIndexRoute: typeof PodcastIndexRoute
+  ProjetosIndexRoute: typeof ProjetosIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +293,173 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/avisos': {
+      id: '/avisos'
+      path: '/avisos'
+      fullPath: '/avisos'
+      preLoaderRoute: typeof AvisosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/busca': {
+      id: '/busca'
+      path: '/busca'
+      fullPath: '/busca'
+      preLoaderRoute: typeof BuscaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contato': {
+      id: '/contato'
+      path: '/contato'
+      fullPath: '/contato'
+      preLoaderRoute: typeof ContatoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sobre': {
+      id: '/sobre'
+      path: '/sobre'
+      fullPath: '/sobre'
+      preLoaderRoute: typeof SobreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/blog/': {
+      id: '/blog/'
+      path: '/blog'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/eventos/': {
+      id: '/eventos/'
+      path: '/eventos'
+      fullPath: '/eventos/'
+      preLoaderRoute: typeof EventosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/eventos/$slug': {
+      id: '/eventos/$slug'
+      path: '/eventos/$slug'
+      fullPath: '/eventos/$slug'
+      preLoaderRoute: typeof EventosSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/galeria/': {
+      id: '/galeria/'
+      path: '/galeria'
+      fullPath: '/galeria/'
+      preLoaderRoute: typeof GaleriaIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/galeria/$slug': {
+      id: '/galeria/$slug'
+      path: '/galeria/$slug'
+      fullPath: '/galeria/$slug'
+      preLoaderRoute: typeof GaleriaSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/noticias/': {
+      id: '/noticias/'
+      path: '/noticias'
+      fullPath: '/noticias/'
+      preLoaderRoute: typeof NoticiasIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/noticias/$slug': {
+      id: '/noticias/$slug'
+      path: '/noticias/$slug'
+      fullPath: '/noticias/$slug'
+      preLoaderRoute: typeof NoticiasSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/podcast/': {
+      id: '/podcast/'
+      path: '/podcast'
+      fullPath: '/podcast/'
+      preLoaderRoute: typeof PodcastIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/podcast/$slug': {
+      id: '/podcast/$slug'
+      path: '/podcast/$slug'
+      fullPath: '/podcast/$slug'
+      preLoaderRoute: typeof PodcastSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projetos/': {
+      id: '/projetos/'
+      path: '/projetos'
+      fullPath: '/projetos/'
+      preLoaderRoute: typeof ProjetosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projetos/$slug': {
+      id: '/projetos/$slug'
+      path: '/projetos/$slug'
+      fullPath: '/projetos/$slug'
+      preLoaderRoute: typeof ProjetosSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
+  AvisosRoute: AvisosRoute,
+  BuscaRoute: BuscaRoute,
+  ContatoRoute: ContatoRoute,
+  SobreRoute: SobreRoute,
+  BlogSlugRoute: BlogSlugRoute,
+  EventosSlugRoute: EventosSlugRoute,
+  GaleriaSlugRoute: GaleriaSlugRoute,
+  NoticiasSlugRoute: NoticiasSlugRoute,
+  PodcastSlugRoute: PodcastSlugRoute,
+  ProjetosSlugRoute: ProjetosSlugRoute,
+  BlogIndexRoute: BlogIndexRoute,
+  EventosIndexRoute: EventosIndexRoute,
+  GaleriaIndexRoute: GaleriaIndexRoute,
+  NoticiasIndexRoute: NoticiasIndexRoute,
+  PodcastIndexRoute: PodcastIndexRoute,
+  ProjetosIndexRoute: ProjetosIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
