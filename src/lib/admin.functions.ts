@@ -65,6 +65,13 @@ export const createAnnouncement = createServerFn({ method: "POST" })
       audience: data.audience,
       status: "publicado",
     });
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (error.message.includes("row-level security")) {
+        throw new Error(
+          "Sua conta não tem permissão de editor para publicar avisos. Peça a um administrador para liberar seu acesso.",
+        );
+      }
+      throw new Error(error.message);
+    }
     return { ok: true };
   });
