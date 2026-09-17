@@ -4,7 +4,16 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { createAnnouncement, getAdminOverview, setPostStatus } from "@/lib/admin.functions";
+import {
+  addGalleryPhoto,
+  createAnnouncement,
+  createGallery,
+  createPost,
+  createVideo,
+  getAdminOverview,
+  getPublishOptions,
+  setPostStatus,
+} from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
