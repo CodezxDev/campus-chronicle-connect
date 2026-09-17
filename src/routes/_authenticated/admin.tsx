@@ -40,6 +40,11 @@ function AdminPage() {
   const fetchOverview = useServerFn(getAdminOverview);
   const updateStatus = useServerFn(setPostStatus);
   const addAnnouncement = useServerFn(createAnnouncement);
+  const fetchOptions = useServerFn(getPublishOptions);
+  const addPost = useServerFn(createPost);
+  const addVideo = useServerFn(createVideo);
+  const addGallery = useServerFn(createGallery);
+  const addPhoto = useServerFn(addGalleryPhoto);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const router = useRouter();
@@ -54,6 +59,77 @@ function AdminPage() {
   const [priority, setPriority] = useState("normal");
   const [audience, setAudience] = useState("Toda a comunidade");
   const [saving, setSaving] = useState(false);
+
+  const options = useQuery({ queryKey: ["publish-options"], queryFn: () => fetchOptions() });
+  const categories = options.data?.categories ?? [];
+  const galleries = options.data?.galleries ?? [];
+
+  const [tab, setTab] = useState<"noticia" | "foto" | "video">("noticia");
+  const [busy, setBusy] = useState(false);
+
+  const [news, setNews] = useState({
+    title: "",
+    excerpt: "",
+    content: "",
+    type: "noticia" as "noticia" | "blog",
+    categoryId: "",
+    coverUrl: "",
+    authorName: "Redação Aurora",
+  });
+  const [video, setVideo] = useState({
+    title: "",
+    description: "",
+    videoUrl: "",
+    thumbnailUrl: "",
+    categoryId: "",
+  });
+  const [photo, setPhoto] = useState({ galleryId: "", imageUrl: "", caption: "" });
+  const [newAlbum, setNewAlbum] = useState({ title: "", description: "", coverUrl: "" });
+
+  async function refreshAll() {
+    await queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
+    await queryClient.invalidateQueries({ queryKey: ["publish-options"] });
+    router.invalidate();
+  }
+
+  async function run(action: () => Promise<unknown>, success: string) {
+    setBusy(true);
+    try {
+      await action();
+      await refreshAll();
+      toast.success(success);
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitNews(e: React.FormEvent) {
+    e.preventDefault();
+    const ok = await run(() => addPost({ data: news }), "Publicação criada.");
+    if (ok) setNews({ ...news, title: "", excerpt: "", content: "", coverUrl: "" });
+  }
+
+  async function submitVideo(e: React.FormEvent) {
+    e.preventDefault();
+    const ok = await run(() => addVideo({ data: video }), "Vídeo publicado.");
+    if (ok) setVideo({ ...video, title: "", description: "", videoUrl: "", thumbnailUrl: "" });
+  }
+
+  async function submitPhoto(e: React.FormEvent) {
+    e.preventDefault();
+    const ok = await run(() => addPhoto({ data: photo }), "Foto adicionada ao álbum.");
+    if (ok) setPhoto({ ...photo, imageUrl: "", caption: "" });
+  }
+
+  async function submitAlbum(e: React.FormEvent) {
+    e.preventDefault();
+    const ok = await run(() => addGallery({ data: newAlbum }), "Álbum criado.");
+    if (ok) setNewAlbum({ title: "", description: "", coverUrl: "" });
+  }
 
   async function handleSignOut() {
     await queryClient.cancelQueries();
