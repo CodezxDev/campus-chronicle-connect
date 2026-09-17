@@ -13,6 +13,7 @@ const NAV = [
   { to: "/projetos", label: "Projetos" },
   { to: "/avisos", label: "Avisos" },
   { to: "/galeria", label: "Galeria" },
+  { to: "/videos", label: "Vídeos" },
 ] as const;
 
 export function SiteHeader() {

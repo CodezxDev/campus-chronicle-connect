@@ -281,3 +281,13 @@ export const getHomeData = createServerFn({ method: "GET" }).handler(async () =>
     projects: projects.data ?? [],
   };
 });
+
+export const listVideos = createServerFn({ method: "GET" }).handler(async () => {
+  const sb = publicClient();
+  const { data } = await sb
+    .from("videos")
+    .select("id,title,slug,description,video_url,thumbnail_url,published_at,categories(name,slug)")
+    .eq("status", "publicado")
+    .order("published_at", { ascending: false });
+  return data ?? [];
+});
