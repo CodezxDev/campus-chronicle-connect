@@ -16,6 +16,7 @@ import { Route as AvisosRouteImport } from './routes/avisos'
 import { Route as BuscaRouteImport } from './routes/busca'
 import { Route as ContatoRouteImport } from './routes/contato'
 import { Route as SobreRouteImport } from './routes/sobre'
+import { Route as VideosRouteImport } from './routes/videos'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
@@ -62,6 +63,11 @@ const ContatoRoute = ContatoRouteImport.update({
 const SobreRoute = SobreRouteImport.update({
   id: '/sobre',
   path: '/sobre',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VideosRoute = VideosRouteImport.update({
+  id: '/videos',
+  path: '/videos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/busca': typeof BuscaRoute
   '/contato': typeof ContatoRoute
   '/sobre': typeof SobreRoute
+  '/videos': typeof VideosRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/eventos/$slug': typeof EventosSlugRoute
@@ -158,6 +165,7 @@ export interface FileRoutesByTo {
   '/busca': typeof BuscaRoute
   '/contato': typeof ContatoRoute
   '/sobre': typeof SobreRoute
+  '/videos': typeof VideosRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/eventos/$slug': typeof EventosSlugRoute
@@ -181,6 +189,7 @@ export interface FileRoutesById {
   '/busca': typeof BuscaRoute
   '/contato': typeof ContatoRoute
   '/sobre': typeof SobreRoute
+  '/videos': typeof VideosRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/eventos/$slug': typeof EventosSlugRoute
@@ -204,6 +213,7 @@ export interface FileRouteTypes {
     | '/busca'
     | '/contato'
     | '/sobre'
+    | '/videos'
     | '/admin'
     | '/blog/$slug'
     | '/eventos/$slug'
@@ -225,6 +235,7 @@ export interface FileRouteTypes {
     | '/busca'
     | '/contato'
     | '/sobre'
+    | '/videos'
     | '/admin'
     | '/blog/$slug'
     | '/eventos/$slug'
@@ -247,6 +258,7 @@ export interface FileRouteTypes {
     | '/busca'
     | '/contato'
     | '/sobre'
+    | '/videos'
     | '/_authenticated/admin'
     | '/blog/$slug'
     | '/eventos/$slug'
@@ -270,6 +282,7 @@ export interface RootRouteChildren {
   BuscaRoute: typeof BuscaRoute
   ContatoRoute: typeof ContatoRoute
   SobreRoute: typeof SobreRoute
+  VideosRoute: typeof VideosRoute
   BlogSlugRoute: typeof BlogSlugRoute
   EventosSlugRoute: typeof EventosSlugRoute
   GaleriaSlugRoute: typeof GaleriaSlugRoute
@@ -333,6 +346,13 @@ declare module '@tanstack/react-router' {
       path: '/sobre'
       fullPath: '/sobre'
       preLoaderRoute: typeof SobreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/videos': {
+      id: '/videos'
+      path: '/videos'
+      fullPath: '/videos'
+      preLoaderRoute: typeof VideosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin': {
@@ -448,6 +468,7 @@ const rootRouteChildren: RootRouteChildren = {
   BuscaRoute: BuscaRoute,
   ContatoRoute: ContatoRoute,
   SobreRoute: SobreRoute,
+  VideosRoute: VideosRoute,
   BlogSlugRoute: BlogSlugRoute,
   EventosSlugRoute: EventosSlugRoute,
   GaleriaSlugRoute: GaleriaSlugRoute,

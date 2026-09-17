@@ -4,7 +4,16 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { createAnnouncement, getAdminOverview, setPostStatus } from "@/lib/admin.functions";
+import {
+  addGalleryPhoto,
+  createAnnouncement,
+  createGallery,
+  createPost,
+  createVideo,
+  getAdminOverview,
+  getPublishOptions,
+  setPostStatus,
+} from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +40,11 @@ function AdminPage() {
   const fetchOverview = useServerFn(getAdminOverview);
   const updateStatus = useServerFn(setPostStatus);
   const addAnnouncement = useServerFn(createAnnouncement);
+  const fetchOptions = useServerFn(getPublishOptions);
+  const addPost = useServerFn(createPost);
+  const addVideo = useServerFn(createVideo);
+  const addGallery = useServerFn(createGallery);
+  const addPhoto = useServerFn(addGalleryPhoto);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const router = useRouter();
@@ -45,6 +59,77 @@ function AdminPage() {
   const [priority, setPriority] = useState("normal");
   const [audience, setAudience] = useState("Toda a comunidade");
   const [saving, setSaving] = useState(false);
+
+  const options = useQuery({ queryKey: ["publish-options"], queryFn: () => fetchOptions() });
+  const categories = options.data?.categories ?? [];
+  const galleries = options.data?.galleries ?? [];
+
+  const [tab, setTab] = useState<"noticia" | "foto" | "video">("noticia");
+  const [busy, setBusy] = useState(false);
+
+  const [news, setNews] = useState({
+    title: "",
+    excerpt: "",
+    content: "",
+    type: "noticia" as "noticia" | "blog",
+    categoryId: "",
+    coverUrl: "",
+    authorName: "Redação Aurora",
+  });
+  const [video, setVideo] = useState({
+    title: "",
+    description: "",
+    videoUrl: "",
+    thumbnailUrl: "",
+    categoryId: "",
+  });
+  const [photo, setPhoto] = useState({ galleryId: "", imageUrl: "", caption: "" });
+  const [newAlbum, setNewAlbum] = useState({ title: "", description: "", coverUrl: "" });
+
+  async function refreshAll() {
+    await queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
+    await queryClient.invalidateQueries({ queryKey: ["publish-options"] });
+    router.invalidate();
+  }
+
+  async function run(action: () => Promise<unknown>, success: string) {
+    setBusy(true);
+    try {
+      await action();
+      await refreshAll();
+      toast.success(success);
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitNews(e: React.FormEvent) {
+    e.preventDefault();
+    const ok = await run(() => addPost({ data: news }), "Publicação criada.");
+    if (ok) setNews({ ...news, title: "", excerpt: "", content: "", coverUrl: "" });
+  }
+
+  async function submitVideo(e: React.FormEvent) {
+    e.preventDefault();
+    const ok = await run(() => addVideo({ data: video }), "Vídeo publicado.");
+    if (ok) setVideo({ ...video, title: "", description: "", videoUrl: "", thumbnailUrl: "" });
+  }
+
+  async function submitPhoto(e: React.FormEvent) {
+    e.preventDefault();
+    const ok = await run(() => addPhoto({ data: photo }), "Foto adicionada ao álbum.");
+    if (ok) setPhoto({ ...photo, imageUrl: "", caption: "" });
+  }
+
+  async function submitAlbum(e: React.FormEvent) {
+    e.preventDefault();
+    const ok = await run(() => addGallery({ data: newAlbum }), "Álbum criado.");
+    if (ok) setNewAlbum({ title: "", description: "", coverUrl: "" });
+  }
 
   async function handleSignOut() {
     await queryClient.cancelQueries();
@@ -132,6 +217,252 @@ function AdminPage() {
           </div>
         ))}
       </div>
+
+      <section className="mt-10 rounded-xl border border-border bg-card p-5 shadow-soft">
+        <h2 className="text-2xl">Publicar conteúdo</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Escolha o canal e envie notícias, fotos ou vídeos para o portal.
+        </p>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {(
+            [
+              ["noticia", "Notícia / Blog"],
+              ["foto", "Fotos"],
+              ["video", "Vídeos"],
+            ] as const
+          ).map(([key, label]) => (
+            <Button
+              key={key}
+              type="button"
+              size="sm"
+              variant={tab === key ? "default" : "outline"}
+              onClick={() => setTab(key)}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+
+        {tab === "noticia" && (
+          <form onSubmit={submitNews} className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5 md:col-span-2">
+              <Label htmlFor="n-title">Título</Label>
+              <Input
+                id="n-title"
+                value={news.title}
+                onChange={(e) => setNews({ ...news, title: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="n-type">Formato</Label>
+              <select
+                id="n-type"
+                value={news.type}
+                onChange={(e) => setNews({ ...news, type: e.target.value as "noticia" | "blog" })}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="noticia">Notícia</option>
+                <option value="blog">Blog</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="n-cat">Canal</Label>
+              <select
+                id="n-cat"
+                value={news.categoryId}
+                onChange={(e) => setNews({ ...news, categoryId: e.target.value })}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Sem canal</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label htmlFor="n-excerpt">Resumo</Label>
+              <Textarea
+                id="n-excerpt"
+                rows={2}
+                value={news.excerpt}
+                onChange={(e) => setNews({ ...news, excerpt: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label htmlFor="n-content">Texto</Label>
+              <Textarea
+                id="n-content"
+                rows={6}
+                value={news.content}
+                onChange={(e) => setNews({ ...news, content: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="n-cover">Endereço da imagem de capa</Label>
+              <Input
+                id="n-cover"
+                placeholder="https://... ou /images/foto.jpg"
+                value={news.coverUrl}
+                onChange={(e) => setNews({ ...news, coverUrl: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="n-author">Autoria</Label>
+              <Input
+                id="n-author"
+                value={news.authorName}
+                onChange={(e) => setNews({ ...news, authorName: e.target.value })}
+              />
+            </div>
+            <Button type="submit" disabled={busy} className="md:col-span-2">
+              {busy ? "Publicando..." : "Publicar"}
+            </Button>
+          </form>
+        )}
+
+        {tab === "foto" && (
+          <div className="mt-6 grid gap-8 md:grid-cols-2">
+            <form onSubmit={submitPhoto} className="space-y-4">
+              <h3 className="text-lg">Adicionar foto a um álbum</h3>
+              <div className="space-y-1.5">
+                <Label htmlFor="f-album">Álbum</Label>
+                <select
+                  id="f-album"
+                  value={photo.galleryId}
+                  onChange={(e) => setPhoto({ ...photo, galleryId: e.target.value })}
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  required
+                >
+                  <option value="">Escolha um álbum</option>
+                  {galleries.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="f-url">Endereço da foto</Label>
+                <Input
+                  id="f-url"
+                  placeholder="https://... ou /images/foto.jpg"
+                  value={photo.imageUrl}
+                  onChange={(e) => setPhoto({ ...photo, imageUrl: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="f-caption">Legenda</Label>
+                <Input
+                  id="f-caption"
+                  value={photo.caption}
+                  onChange={(e) => setPhoto({ ...photo, caption: e.target.value })}
+                />
+              </div>
+              <Button type="submit" disabled={busy} className="w-full">
+                {busy ? "Enviando..." : "Adicionar foto"}
+              </Button>
+            </form>
+
+            <form onSubmit={submitAlbum} className="space-y-4">
+              <h3 className="text-lg">Criar novo álbum</h3>
+              <div className="space-y-1.5">
+                <Label htmlFor="al-title">Nome do álbum</Label>
+                <Input
+                  id="al-title"
+                  value={newAlbum.title}
+                  onChange={(e) => setNewAlbum({ ...newAlbum, title: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="al-desc">Descrição</Label>
+                <Textarea
+                  id="al-desc"
+                  rows={3}
+                  value={newAlbum.description}
+                  onChange={(e) => setNewAlbum({ ...newAlbum, description: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="al-cover">Endereço da capa</Label>
+                <Input
+                  id="al-cover"
+                  value={newAlbum.coverUrl}
+                  onChange={(e) => setNewAlbum({ ...newAlbum, coverUrl: e.target.value })}
+                />
+              </div>
+              <Button type="submit" variant="outline" disabled={busy} className="w-full">
+                {busy ? "Criando..." : "Criar álbum"}
+              </Button>
+            </form>
+          </div>
+        )}
+
+        {tab === "video" && (
+          <form onSubmit={submitVideo} className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5 md:col-span-2">
+              <Label htmlFor="v-title">Título</Label>
+              <Input
+                id="v-title"
+                value={video.title}
+                onChange={(e) => setVideo({ ...video, title: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="v-url">Endereço do vídeo (YouTube, Vimeo ou arquivo)</Label>
+              <Input
+                id="v-url"
+                placeholder="https://youtu.be/..."
+                value={video.videoUrl}
+                onChange={(e) => setVideo({ ...video, videoUrl: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="v-cat">Canal</Label>
+              <select
+                id="v-cat"
+                value={video.categoryId}
+                onChange={(e) => setVideo({ ...video, categoryId: e.target.value })}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Sem canal</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label htmlFor="v-desc">Descrição</Label>
+              <Textarea
+                id="v-desc"
+                rows={3}
+                value={video.description}
+                onChange={(e) => setVideo({ ...video, description: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label htmlFor="v-thumb">Endereço da miniatura</Label>
+              <Input
+                id="v-thumb"
+                value={video.thumbnailUrl}
+                onChange={(e) => setVideo({ ...video, thumbnailUrl: e.target.value })}
+              />
+            </div>
+            <Button type="submit" disabled={busy} className="md:col-span-2">
+              {busy ? "Publicando..." : "Publicar vídeo"}
+            </Button>
+          </form>
+        )}
+      </section>
 
       <div className="mt-10 grid gap-8 lg:grid-cols-[1.6fr_1fr]">
         <section>

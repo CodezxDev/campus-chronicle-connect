@@ -1,5 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
+import { quickAdminLogin } from "@/lib/quick-admin.functions";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
@@ -25,6 +27,9 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
+  const quickLogin = useServerFn(quickAdminLogin);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [adminLoading, setAdminLoading] = useState(false);
   const [mode, setMode] = useState<"entrar" | "criar">("entrar");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -77,6 +82,28 @@ function AuthPage() {
     navigate({ to: "/admin", replace: true });
   }
 
+  async function handleAdminPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setAdminLoading(true);
+    try {
+      const result = await quickLogin({ data: { password: adminPassword } });
+      if (!result.ok) {
+        toast.error("Senha de administrador incorreta.");
+        return;
+      }
+      const { error } = await supabase.auth.signInWithPassword({
+        email: result.email,
+        password: result.secret,
+      });
+      if (error) throw error;
+      navigate({ to: "/admin", replace: true });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível entrar.");
+    } finally {
+      setAdminLoading(false);
+    }
+  }
+
   return (
     <div className="container-page flex min-h-[70vh] max-w-md flex-col justify-center py-16">
       <p className="kicker">Portal Aurora</p>
@@ -86,6 +113,37 @@ function AuthPage() {
       <p className="mt-2 text-sm text-muted-foreground">
         Área restrita para redação, coordenação e secretaria.
       </p>
+
+      <form
+        onSubmit={handleAdminPassword}
+        className="mt-8 space-y-3 rounded-xl border border-border bg-card p-5 shadow-soft"
+      >
+        <div>
+          <p className="font-medium">Entrar como administrador</p>
+          <p className="text-sm text-muted-foreground">
+            Digite apenas a senha da administração para gerenciar o portal.
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="admin-password">Senha de administrador</Label>
+          <Input
+            id="admin-password"
+            type="password"
+            value={adminPassword}
+            onChange={(e) => setAdminPassword(e.target.value)}
+            placeholder="••••••"
+            required
+          />
+        </div>
+        <Button type="submit" className="w-full" disabled={adminLoading}>
+          {adminLoading ? "Entrando..." : "Entrar como administrador"}
+        </Button>
+      </form>
+
+      <p className="mt-8 text-center text-xs uppercase tracking-widest text-muted-foreground">
+        ou use uma conta
+      </p>
+
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         {mode === "criar" && (
