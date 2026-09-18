@@ -1,134 +1,389 @@
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getAdminOverview, getPublishOptions } from "@/lib/admin.functions";
 import {
-  addGalleryPhoto,
-  createAnnouncement,
-  createGallery,
-  createPost,
-  createVideo,
-  getAdminOverview,
-  getPublishOptions,
-  setPostStatus,
-} from "@/lib/admin.functions";
+  deleteContent,
+  listContent,
+  saveContent,
+  setContentStatus,
+  type ContentTable,
+} from "@/lib/content.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ImageUploader } from "@/components/image-uploader";
 import { formatDate } from "@/lib/format";
+import { SITE, pageTitle } from "@/lib/site";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
     meta: [
-      { title: "Painel administrativo — Portal Aurora" },
+      { title: pageTitle("Painel administrativo") },
       {
         name: "description",
-        content: "Painel da equipe para publicar conteúdos e avisos do Portal Aurora.",
+        content: `Painel da equipe para publicar conteúdos do ${SITE.name}.`,
       },
-      { property: "og:title", content: "Painel administrativo — Portal Aurora" },
-      { property: "og:description", content: "Gestão editorial do portal da Escola Aurora." },
       { name: "robots", content: "noindex" },
     ],
   }),
   component: AdminPage,
 });
 
+type FieldKind = "text" | "textarea" | "image" | "number" | "datetime" | "date" | "select";
+
+type Field = {
+  name: string;
+  label: string;
+  kind: FieldKind;
+  options?: { value: string; label: string }[];
+  optionsFrom?: "categories" | "galleries";
+  required?: boolean;
+  full?: boolean;
+  rows?: number;
+  placeholder?: string;
+};
+
+type ResourceKey =
+  | "posts"
+  | "podcast_episodes"
+  | "events"
+  | "student_projects"
+  | "galleries"
+  | "gallery_photos"
+  | "videos"
+  | "announcements";
+
+type Resource = {
+  key: ResourceKey;
+  table: ContentTable;
+  label: string;
+  singular: string;
+  fields: Field[];
+  hasStatus: boolean;
+  subtitle: (row: Record<string, unknown>) => string;
+};
+
+const RESOURCES: Resource[] = [
+  {
+    key: "posts",
+    table: "posts",
+    label: "Notícias e blog",
+    singular: "publicação",
+    hasStatus: true,
+    subtitle: (r) =>
+      `${r["type"] === "blog" ? "Blog" : "Notícia"} · ${r["status"]} · ${formatDate(String(r["published_at"] ?? ""))}`,
+    fields: [
+      { name: "title", label: "Título", kind: "text", required: true, full: true },
+      {
+        name: "type",
+        label: "Formato",
+        kind: "select",
+        options: [
+          { value: "noticia", label: "Notícia" },
+          { value: "blog", label: "Blog" },
+        ],
+      },
+      { name: "category_id", label: "Canal", kind: "select", optionsFrom: "categories" },
+      { name: "excerpt", label: "Resumo", kind: "textarea", rows: 2, full: true },
+      { name: "content", label: "Texto completo", kind: "textarea", rows: 8, full: true },
+      { name: "author_name", label: "Autoria", kind: "text" },
+      { name: "cover_url", label: "Imagem de capa", kind: "image" },
+    ],
+  },
+  {
+    key: "podcast_episodes",
+    table: "podcast_episodes",
+    label: "Podcast",
+    singular: "episódio",
+    hasStatus: true,
+    subtitle: (r) => `#${r["episode_number"] ?? "-"} · ${r["status"]}`,
+    fields: [
+      { name: "title", label: "Título", kind: "text", required: true, full: true },
+      { name: "episode_number", label: "Número do episódio", kind: "number" },
+      { name: "duration_seconds", label: "Duração (segundos)", kind: "number" },
+      { name: "guests", label: "Participantes", kind: "text", full: true },
+      { name: "description", label: "Descrição", kind: "textarea", rows: 5, full: true },
+      {
+        name: "audio_url",
+        label: "Endereço do áudio (MP3)",
+        kind: "text",
+        full: true,
+        placeholder: "https://...",
+      },
+      { name: "cover_url", label: "Imagem de capa", kind: "image" },
+    ],
+  },
+  {
+    key: "events",
+    table: "events",
+    label: "Eventos",
+    singular: "evento",
+    hasStatus: true,
+    subtitle: (r) => `${formatDate(String(r["starts_at"] ?? ""))} · ${r["status"]}`,
+    fields: [
+      { name: "title", label: "Título", kind: "text", required: true, full: true },
+      { name: "starts_at", label: "Início", kind: "datetime", required: true },
+      { name: "ends_at", label: "Término", kind: "datetime" },
+      { name: "location", label: "Local", kind: "text" },
+      { name: "audience", label: "Público", kind: "text" },
+      { name: "description", label: "Descrição", kind: "textarea", rows: 5, full: true },
+      { name: "registration_url", label: "Link de inscrição", kind: "text", full: true },
+      { name: "image_url", label: "Imagem de capa", kind: "image" },
+    ],
+  },
+  {
+    key: "student_projects",
+    table: "student_projects",
+    label: "Projetos",
+    singular: "projeto",
+    hasStatus: true,
+    subtitle: (r) => `${r["school_class"] ?? ""} · ${r["status"]}`,
+    fields: [
+      { name: "title", label: "Título", kind: "text", required: true, full: true },
+      { name: "school_class", label: "Turma", kind: "text" },
+      { name: "subject", label: "Disciplina", kind: "text" },
+      { name: "year", label: "Ano", kind: "number" },
+      { name: "advisor", label: "Orientação", kind: "text" },
+      { name: "students", label: "Estudantes", kind: "text", full: true },
+      { name: "summary", label: "Resumo", kind: "textarea", rows: 2, full: true },
+      { name: "description", label: "Descrição", kind: "textarea", rows: 6, full: true },
+      { name: "cover_url", label: "Imagem de capa", kind: "image" },
+    ],
+  },
+  {
+    key: "galleries",
+    table: "galleries",
+    label: "Álbuns",
+    singular: "álbum",
+    hasStatus: true,
+    subtitle: (r) => `${formatDate(String(r["happened_at"] ?? ""))} · ${r["status"]}`,
+    fields: [
+      { name: "title", label: "Nome do álbum", kind: "text", required: true, full: true },
+      { name: "happened_at", label: "Data", kind: "date" },
+      { name: "description", label: "Descrição", kind: "textarea", rows: 3, full: true },
+      { name: "cover_url", label: "Capa do álbum", kind: "image" },
+    ],
+  },
+  {
+    key: "gallery_photos",
+    table: "gallery_photos",
+    label: "Fotos",
+    singular: "foto",
+    hasStatus: false,
+    subtitle: (r) => String(r["caption"] ?? "Sem legenda"),
+    fields: [
+      {
+        name: "gallery_id",
+        label: "Álbum",
+        kind: "select",
+        optionsFrom: "galleries",
+        required: true,
+      },
+      { name: "position", label: "Ordem", kind: "number" },
+      { name: "caption", label: "Legenda", kind: "text", full: true },
+      { name: "image_url", label: "Foto", kind: "image", full: true },
+    ],
+  },
+  {
+    key: "videos",
+    table: "videos",
+    label: "Vídeos",
+    singular: "vídeo",
+    hasStatus: true,
+    subtitle: (r) => `${r["status"]} · ${formatDate(String(r["published_at"] ?? ""))}`,
+    fields: [
+      { name: "title", label: "Título", kind: "text", required: true, full: true },
+      {
+        name: "video_url",
+        label: "Endereço do vídeo (YouTube, Vimeo ou arquivo)",
+        kind: "text",
+        required: true,
+      },
+      { name: "category_id", label: "Canal", kind: "select", optionsFrom: "categories" },
+      { name: "description", label: "Descrição", kind: "textarea", rows: 4, full: true },
+      { name: "thumbnail_url", label: "Miniatura", kind: "image" },
+    ],
+  },
+  {
+    key: "announcements",
+    table: "announcements",
+    label: "Avisos",
+    singular: "aviso",
+    hasStatus: true,
+    subtitle: (r) => `${r["priority"]} · ${r["status"]}`,
+    fields: [
+      { name: "title", label: "Título", kind: "text", required: true, full: true },
+      { name: "body", label: "Mensagem", kind: "textarea", rows: 4, full: true },
+      {
+        name: "priority",
+        label: "Prioridade",
+        kind: "select",
+        options: [
+          { value: "normal", label: "Normal" },
+          { value: "alta", label: "Importante" },
+          { value: "urgente", label: "Urgente" },
+        ],
+      },
+      { name: "audience", label: "Público", kind: "text" },
+    ],
+  },
+];
+
+function toInputDateTime(value: unknown) {
+  if (!value) return "";
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function toInputDate(value: unknown) {
+  if (!value) return "";
+  return String(value).slice(0, 10);
+}
+
+function emptyForm(resource: Resource) {
+  const form: Record<string, string> = {};
+  for (const f of resource.fields) {
+    form[f.name] =
+      f.kind === "select" && f.options?.length ? (f.options[0]?.value ?? "") : "";
+  }
+  if (resource.key === "posts") form["author_name"] = "Redação MOSC";
+  return form;
+}
+
 function AdminPage() {
   const fetchOverview = useServerFn(getAdminOverview);
-  const updateStatus = useServerFn(setPostStatus);
-  const addAnnouncement = useServerFn(createAnnouncement);
   const fetchOptions = useServerFn(getPublishOptions);
-  const addPost = useServerFn(createPost);
-  const addVideo = useServerFn(createVideo);
-  const addGallery = useServerFn(createGallery);
-  const addPhoto = useServerFn(addGalleryPhoto);
+  const fetchContent = useServerFn(listContent);
+  const save = useServerFn(saveContent);
+  const remove = useServerFn(deleteContent);
+  const toggleStatus = useServerFn(setContentStatus);
+
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const router = useRouter();
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["admin-overview"],
-    queryFn: () => fetchOverview(),
-  });
-
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [priority, setPriority] = useState("normal");
-  const [audience, setAudience] = useState("Toda a comunidade");
-  const [saving, setSaving] = useState(false);
-
+  const overview = useQuery({ queryKey: ["admin-overview"], queryFn: () => fetchOverview() });
   const options = useQuery({ queryKey: ["publish-options"], queryFn: () => fetchOptions() });
-  const categories = options.data?.categories ?? [];
-  const galleries = options.data?.galleries ?? [];
+  const content = useQuery({ queryKey: ["admin-content"], queryFn: () => fetchContent() });
 
-  const [tab, setTab] = useState<"noticia" | "foto" | "video">("noticia");
+  const [tab, setTab] = useState<ResourceKey>("posts");
+  const resource = RESOURCES.find((r) => r.key === tab)!;
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<Record<string, string>>(() => emptyForm(RESOURCES[0]!));
   const [busy, setBusy] = useState(false);
 
-  const [news, setNews] = useState({
-    title: "",
-    excerpt: "",
-    content: "",
-    type: "noticia" as "noticia" | "blog",
-    categoryId: "",
-    coverUrl: "",
-    authorName: "Redação Aurora",
-  });
-  const [video, setVideo] = useState({
-    title: "",
-    description: "",
-    videoUrl: "",
-    thumbnailUrl: "",
-    categoryId: "",
-  });
-  const [photo, setPhoto] = useState({ galleryId: "", imageUrl: "", caption: "" });
-  const [newAlbum, setNewAlbum] = useState({ title: "", description: "", coverUrl: "" });
+  const rows = useMemo(
+    () => (content.data?.[resource.key] ?? []) as Record<string, unknown>[],
+    [content.data, resource.key],
+  );
 
-  async function refreshAll() {
-    await queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
-    await queryClient.invalidateQueries({ queryKey: ["publish-options"] });
+  function selectTab(key: ResourceKey) {
+    const next = RESOURCES.find((r) => r.key === key)!;
+    setTab(key);
+    setEditingId(null);
+    setForm(emptyForm(next));
+  }
+
+  function startNew() {
+    setEditingId(null);
+    setForm(emptyForm(resource));
+  }
+
+  function startEdit(row: Record<string, unknown>) {
+    const next: Record<string, string> = {};
+    for (const f of resource.fields) {
+      const raw = row[f.name];
+      next[f.name] =
+        f.kind === "datetime"
+          ? toInputDateTime(raw)
+          : f.kind === "date"
+            ? toInputDate(raw)
+            : raw === null || raw === undefined
+              ? ""
+              : String(raw);
+    }
+    setForm(next);
+    setEditingId(String(row["id"]));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function refresh() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["admin-content"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-overview"] }),
+      queryClient.invalidateQueries({ queryKey: ["publish-options"] }),
+    ]);
     router.invalidate();
   }
 
-  async function run(action: () => Promise<unknown>, success: string) {
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
     setBusy(true);
     try {
-      await action();
-      await refreshAll();
-      toast.success(success);
-      return true;
+      const values: Record<string, unknown> = {};
+      for (const f of resource.fields) {
+        const raw = form[f.name] ?? "";
+        if (f.kind === "number") {
+          values[f.name] = raw === "" ? null : Number(raw);
+        } else if (f.kind === "datetime" || f.kind === "date") {
+          values[f.name] = raw === "" ? null : new Date(raw).toISOString();
+        } else {
+          values[f.name] = raw;
+        }
+      }
+      if (resource.key === "galleries" && values["happened_at"]) {
+        values["happened_at"] = String(values["happened_at"]).slice(0, 10);
+      }
+      if (!editingId && resource.hasStatus) values["status"] = "publicado";
+      if (!editingId && resource.key === "events" && !values["starts_at"]) {
+        throw new Error("Informe a data de início do evento.");
+      }
+      await save({ data: { table: resource.table, id: editingId, values } });
+      toast.success(editingId ? "Alterações salvas." : `Novo ${resource.singular} publicado.`);
+      setEditingId(null);
+      setForm(emptyForm(resource));
+      await refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Não foi possível salvar.");
-      return false;
     } finally {
       setBusy(false);
     }
   }
 
-  async function submitNews(e: React.FormEvent) {
-    e.preventDefault();
-    const ok = await run(() => addPost({ data: news }), "Publicação criada.");
-    if (ok) setNews({ ...news, title: "", excerpt: "", content: "", coverUrl: "" });
+  async function handleDelete(id: string) {
+    if (!window.confirm(`Excluir este ${resource.singular} definitivamente?`)) return;
+    try {
+      await remove({ data: { table: resource.table, id } });
+      if (editingId === id) startNew();
+      toast.success("Conteúdo excluído.");
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao excluir.");
+    }
   }
 
-  async function submitVideo(e: React.FormEvent) {
-    e.preventDefault();
-    const ok = await run(() => addVideo({ data: video }), "Vídeo publicado.");
-    if (ok) setVideo({ ...video, title: "", description: "", videoUrl: "", thumbnailUrl: "" });
-  }
-
-  async function submitPhoto(e: React.FormEvent) {
-    e.preventDefault();
-    const ok = await run(() => addPhoto({ data: photo }), "Foto adicionada ao álbum.");
-    if (ok) setPhoto({ ...photo, imageUrl: "", caption: "" });
-  }
-
-  async function submitAlbum(e: React.FormEvent) {
-    e.preventDefault();
-    const ok = await run(() => addGallery({ data: newAlbum }), "Álbum criado.");
-    if (ok) setNewAlbum({ title: "", description: "", coverUrl: "" });
+  async function handleToggle(id: string, status: string) {
+    try {
+      await toggleStatus({
+        data: {
+          table: resource.table,
+          id,
+          status: status === "publicado" ? "rascunho" : "publicado",
+        },
+      });
+      toast.success("Status atualizado.");
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao atualizar.");
+    }
   }
 
   async function handleSignOut() {
@@ -138,40 +393,31 @@ function AdminPage() {
     navigate({ to: "/auth", replace: true });
   }
 
-  async function togglePost(id: string, status: string) {
-    try {
-      await updateStatus({
-        data: { id, status: status === "publicado" ? "rascunho" : "publicado" },
-      });
-      await queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
-      router.invalidate();
-      toast.success("Status atualizado.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao atualizar.");
+  function optionsFor(field: Field) {
+    if (field.options) return field.options;
+    if (field.optionsFrom === "categories") {
+      return (options.data?.categories ?? []).map((c) => ({ value: c.id, label: c.name }));
     }
+    if (field.optionsFrom === "galleries") {
+      return (options.data?.galleries ?? []).map((g) => ({ value: g.id, label: g.title }));
+    }
+    return [];
   }
 
-  async function submitAnnouncement(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await addAnnouncement({ data: { title, body, priority, audience } });
-      setTitle("");
-      setBody("");
-      await queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
-      router.invalidate();
-      toast.success("Aviso publicado.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao publicar o aviso.");
-    } finally {
-      setSaving(false);
-    }
-  }
+  const data = overview.data;
+  const stats = [
+    { label: "Publicações", value: content.data?.posts.length ?? 0 },
+    { label: "Episódios", value: content.data?.podcast_episodes.length ?? 0 },
+    { label: "Eventos", value: content.data?.events.length ?? 0 },
+    { label: "Projetos", value: content.data?.student_projects.length ?? 0 },
+    { label: "Álbuns", value: content.data?.galleries.length ?? 0 },
+    { label: "Vídeos", value: content.data?.videos.length ?? 0 },
+  ];
 
-  if (isLoading) {
+  if (content.isLoading) {
     return <div className="container-page py-20 text-muted-foreground">Carregando painel...</div>;
   }
-  if (error || !data) {
+  if (content.error) {
     return (
       <div className="container-page py-20 text-muted-foreground">
         Não foi possível carregar o painel.
@@ -179,27 +425,18 @@ function AdminPage() {
     );
   }
 
-  const stats = [
-    { label: "Publicações", value: data.posts.length },
-    { label: "Episódios", value: data.counts.episodes },
-    { label: "Eventos", value: data.counts.events },
-    { label: "Projetos", value: data.counts.projects },
-    { label: "Álbuns", value: data.counts.galleries },
-    { label: "Avisos", value: data.announcements.length },
-  ];
-
   return (
-    <div className="container-page py-12">
+    <div className="container-page py-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="kicker">Área restrita</p>
-          <h1 className="mt-2 text-4xl">Painel administrativo</h1>
+          <h1 className="mt-2 text-3xl md:text-4xl">Painel administrativo</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {data.name ? `Olá, ${data.name}. ` : ""}
-            {data.roles.length ? `Perfil: ${data.roles.join(", ")}.` : "Perfil: leitor."}
+            {data?.name ? `Olá, ${data.name}. ` : ""}
+            {data?.roles.length ? `Perfil: ${data.roles.join(", ")}.` : "Perfil: leitor."}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" asChild>
             <Link to="/">Ver o site</Link>
           </Button>
@@ -209,333 +446,148 @@ function AdminPage() {
         </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {stats.map((s) => (
           <div key={s.label} className="rounded-xl border border-border bg-card p-4 shadow-soft">
-            <p className="text-3xl font-semibold">{s.value}</p>
-            <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">{s.label}</p>
+            <p className="text-2xl font-semibold md:text-3xl">{s.value}</p>
+            <p className="mt-1 text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+              {s.label}
+            </p>
           </div>
         ))}
       </div>
 
-      <section className="mt-10 rounded-xl border border-border bg-card p-5 shadow-soft">
-        <h2 className="text-2xl">Publicar conteúdo</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Escolha o canal e envie notícias, fotos ou vídeos para o portal.
-        </p>
+      <div className="mt-8 flex flex-wrap gap-2">
+        {RESOURCES.map((r) => (
+          <Button
+            key={r.key}
+            type="button"
+            size="sm"
+            variant={tab === r.key ? "default" : "outline"}
+            onClick={() => selectTab(r.key)}
+          >
+            {r.label}
+          </Button>
+        ))}
+      </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {(
-            [
-              ["noticia", "Notícia / Blog"],
-              ["foto", "Fotos"],
-              ["video", "Vídeos"],
-            ] as const
-          ).map(([key, label]) => (
-            <Button
-              key={key}
-              type="button"
-              size="sm"
-              variant={tab === key ? "default" : "outline"}
-              onClick={() => setTab(key)}
-            >
-              {label}
-            </Button>
-          ))}
-        </div>
-
-        {tab === "noticia" && (
-          <form onSubmit={submitNews} className="mt-6 grid gap-4 md:grid-cols-2">
-            <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="n-title">Título</Label>
-              <Input
-                id="n-title"
-                value={news.title}
-                onChange={(e) => setNews({ ...news, title: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="n-type">Formato</Label>
-              <select
-                id="n-type"
-                value={news.type}
-                onChange={(e) => setNews({ ...news, type: e.target.value as "noticia" | "blog" })}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="noticia">Notícia</option>
-                <option value="blog">Blog</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="n-cat">Canal</Label>
-              <select
-                id="n-cat"
-                value={news.categoryId}
-                onChange={(e) => setNews({ ...news, categoryId: e.target.value })}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="">Sem canal</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="n-excerpt">Resumo</Label>
-              <Textarea
-                id="n-excerpt"
-                rows={2}
-                value={news.excerpt}
-                onChange={(e) => setNews({ ...news, excerpt: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="n-content">Texto</Label>
-              <Textarea
-                id="n-content"
-                rows={6}
-                value={news.content}
-                onChange={(e) => setNews({ ...news, content: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="n-cover">Endereço da imagem de capa</Label>
-              <Input
-                id="n-cover"
-                placeholder="https://... ou /images/foto.jpg"
-                value={news.coverUrl}
-                onChange={(e) => setNews({ ...news, coverUrl: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="n-author">Autoria</Label>
-              <Input
-                id="n-author"
-                value={news.authorName}
-                onChange={(e) => setNews({ ...news, authorName: e.target.value })}
-              />
-            </div>
-            <Button type="submit" disabled={busy} className="md:col-span-2">
-              {busy ? "Publicando..." : "Publicar"}
-            </Button>
-          </form>
-        )}
-
-        {tab === "foto" && (
-          <div className="mt-6 grid gap-8 md:grid-cols-2">
-            <form onSubmit={submitPhoto} className="space-y-4">
-              <h3 className="text-lg">Adicionar foto a um álbum</h3>
-              <div className="space-y-1.5">
-                <Label htmlFor="f-album">Álbum</Label>
-                <select
-                  id="f-album"
-                  value={photo.galleryId}
-                  onChange={(e) => setPhoto({ ...photo, galleryId: e.target.value })}
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  required
-                >
-                  <option value="">Escolha um álbum</option>
-                  {galleries.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="f-url">Endereço da foto</Label>
-                <Input
-                  id="f-url"
-                  placeholder="https://... ou /images/foto.jpg"
-                  value={photo.imageUrl}
-                  onChange={(e) => setPhoto({ ...photo, imageUrl: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="f-caption">Legenda</Label>
-                <Input
-                  id="f-caption"
-                  value={photo.caption}
-                  onChange={(e) => setPhoto({ ...photo, caption: e.target.value })}
-                />
-              </div>
-              <Button type="submit" disabled={busy} className="w-full">
-                {busy ? "Enviando..." : "Adicionar foto"}
+      <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_1fr]">
+        <section className="rounded-xl border border-border bg-card p-5 shadow-soft">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-xl md:text-2xl">
+              {editingId ? `Editar ${resource.singular}` : `Novo ${resource.singular}`}
+            </h2>
+            {editingId && (
+              <Button type="button" size="sm" variant="ghost" onClick={startNew}>
+                Cancelar edição
               </Button>
-            </form>
-
-            <form onSubmit={submitAlbum} className="space-y-4">
-              <h3 className="text-lg">Criar novo álbum</h3>
-              <div className="space-y-1.5">
-                <Label htmlFor="al-title">Nome do álbum</Label>
-                <Input
-                  id="al-title"
-                  value={newAlbum.title}
-                  onChange={(e) => setNewAlbum({ ...newAlbum, title: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="al-desc">Descrição</Label>
-                <Textarea
-                  id="al-desc"
-                  rows={3}
-                  value={newAlbum.description}
-                  onChange={(e) => setNewAlbum({ ...newAlbum, description: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="al-cover">Endereço da capa</Label>
-                <Input
-                  id="al-cover"
-                  value={newAlbum.coverUrl}
-                  onChange={(e) => setNewAlbum({ ...newAlbum, coverUrl: e.target.value })}
-                />
-              </div>
-              <Button type="submit" variant="outline" disabled={busy} className="w-full">
-                {busy ? "Criando..." : "Criar álbum"}
-              </Button>
-            </form>
+            )}
           </div>
-        )}
 
-        {tab === "video" && (
-          <form onSubmit={submitVideo} className="mt-6 grid gap-4 md:grid-cols-2">
-            <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="v-title">Título</Label>
-              <Input
-                id="v-title"
-                value={video.title}
-                onChange={(e) => setVideo({ ...video, title: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="v-url">Endereço do vídeo (YouTube, Vimeo ou arquivo)</Label>
-              <Input
-                id="v-url"
-                placeholder="https://youtu.be/..."
-                value={video.videoUrl}
-                onChange={(e) => setVideo({ ...video, videoUrl: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="v-cat">Canal</Label>
-              <select
-                id="v-cat"
-                value={video.categoryId}
-                onChange={(e) => setVideo({ ...video, categoryId: e.target.value })}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="">Sem canal</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="v-desc">Descrição</Label>
-              <Textarea
-                id="v-desc"
-                rows={3}
-                value={video.description}
-                onChange={(e) => setVideo({ ...video, description: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="v-thumb">Endereço da miniatura</Label>
-              <Input
-                id="v-thumb"
-                value={video.thumbnailUrl}
-                onChange={(e) => setVideo({ ...video, thumbnailUrl: e.target.value })}
-              />
-            </div>
-            <Button type="submit" disabled={busy} className="md:col-span-2">
-              {busy ? "Publicando..." : "Publicar vídeo"}
+          <form onSubmit={submit} className="mt-5 grid gap-4 sm:grid-cols-2">
+            {resource.fields.map((field) => {
+              const id = `${resource.key}-${field.name}`;
+              const value = form[field.name] ?? "";
+              const cls = field.full ? "sm:col-span-2" : "";
+              if (field.kind === "image") {
+                return (
+                  <div key={field.name} className={cls}>
+                    <ImageUploader
+                      id={id}
+                      label={field.label}
+                      value={value}
+                      onChange={(url) => setForm({ ...form, [field.name]: url })}
+                    />
+                  </div>
+                );
+              }
+              return (
+                <div key={field.name} className={`space-y-1.5 ${cls}`}>
+                  <Label htmlFor={id}>{field.label}</Label>
+                  {field.kind === "textarea" ? (
+                    <Textarea
+                      id={id}
+                      rows={field.rows ?? 3}
+                      value={value}
+                      onChange={(e) => setForm({ ...form, [field.name]: e.target.value })}
+                    />
+                  ) : field.kind === "select" ? (
+                    <select
+                      id={id}
+                      value={value}
+                      required={field.required}
+                      onChange={(e) => setForm({ ...form, [field.name]: e.target.value })}
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      {!field.options && <option value="">Sem canal</option>}
+                      {optionsFor(field).map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <Input
+                      id={id}
+                      type={
+                        field.kind === "number"
+                          ? "number"
+                          : field.kind === "datetime"
+                            ? "datetime-local"
+                            : field.kind === "date"
+                              ? "date"
+                              : "text"
+                      }
+                      placeholder={field.placeholder}
+                      required={field.required}
+                      value={value}
+                      onChange={(e) => setForm({ ...form, [field.name]: e.target.value })}
+                    />
+                  )}
+                </div>
+              );
+            })}
+            <Button type="submit" disabled={busy} className="sm:col-span-2">
+              {busy ? "Salvando..." : editingId ? "Salvar alterações" : "Publicar"}
             </Button>
           </form>
-        )}
-      </section>
-
-      <div className="mt-10 grid gap-8 lg:grid-cols-[1.6fr_1fr]">
-        <section>
-          <h2 className="mb-4 border-b border-border pb-3 text-2xl">Notícias e blog</h2>
-          <ul className="divide-y divide-border rounded-xl border border-border bg-card">
-            {data.posts.map((p) => (
-              <li key={p.id} className="flex flex-wrap items-center gap-3 p-4">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{p.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {p.type === "blog" ? "Blog" : "Notícia"} · {p.status} ·{" "}
-                    {formatDate(p.published_at)}
-                  </p>
-                </div>
-                <Button size="sm" variant="outline" onClick={() => togglePost(p.id, p.status)}>
-                  {p.status === "publicado" ? "Despublicar" : "Publicar"}
-                </Button>
-              </li>
-            ))}
-          </ul>
         </section>
 
         <section>
-          <h2 className="mb-4 border-b border-border pb-3 text-2xl">Novo aviso</h2>
-          <form
-            onSubmit={submitAnnouncement}
-            className="space-y-4 rounded-xl border border-border bg-card p-5 shadow-soft"
-          >
-            <div className="space-y-1.5">
-              <Label htmlFor="a-title">Título</Label>
-              <Input id="a-title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="a-body">Mensagem</Label>
-              <Textarea id="a-body" rows={4} value={body} onChange={(e) => setBody(e.target.value)} />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="a-priority">Prioridade</Label>
-                <select
-                  id="a-priority"
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value)}
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="normal">Normal</option>
-                  <option value="alta">Importante</option>
-                  <option value="urgente">Urgente</option>
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="a-audience">Público</Label>
-                <Input
-                  id="a-audience"
-                  value={audience}
-                  onChange={(e) => setAudience(e.target.value)}
-                />
-              </div>
-            </div>
-            <Button type="submit" className="w-full" disabled={saving}>
-              {saving ? "Publicando..." : "Publicar aviso"}
-            </Button>
-          </form>
-
-          <ul className="mt-6 divide-y divide-border rounded-xl border border-border bg-card">
-            {data.announcements.map((a) => (
-              <li key={a.id} className="p-4">
-                <p className="font-medium">{a.title}</p>
-                <p className="text-xs text-muted-foreground">
-                  {a.priority} · {a.status} · {formatDate(a.starts_at)}
-                </p>
-              </li>
-            ))}
+          <h2 className="mb-4 border-b border-border pb-3 text-xl md:text-2xl">
+            {resource.label} ({rows.length})
+          </h2>
+          <ul className="divide-y divide-border rounded-xl border border-border bg-card">
+            {rows.map((row) => {
+              const id = String(row["id"]);
+              const status = String(row["status"] ?? "");
+              return (
+                <li key={id} className="flex flex-wrap items-center gap-3 p-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">
+                      {String(row["title"] ?? row["caption"] ?? "Sem título")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{resource.subtitle(row)}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => startEdit(row)}>
+                      Editar
+                    </Button>
+                    {resource.hasStatus && (
+                      <Button size="sm" variant="outline" onClick={() => handleToggle(id, status)}>
+                        {status === "publicado" ? "Despublicar" : "Publicar"}
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" onClick={() => handleDelete(id)}>
+                      Excluir
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+            {rows.length === 0 && (
+              <li className="p-6 text-sm text-muted-foreground">Nenhum conteúdo cadastrado.</li>
+            )}
           </ul>
         </section>
       </div>
